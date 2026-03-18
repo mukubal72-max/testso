@@ -115,8 +115,8 @@ export default function LoanManagement() {
         const interestPerCycle = (l.loan_amount * l.interest_rate) / 100;
         const totalInterestDue = pendingInstallments * interestPerCycle;
         
-        const totalPenalty = l.payments?.reduce((sum: number, p: any) => sum + (Number(p.penalty) || 0), 0) || 0;
-        const totalCharges = l.payments?.reduce((sum: number, p: any) => sum + (Number(p.charges) || 0), 0) || 0;
+        const totalPenalty = 0;
+        const totalCharges = 0;
         
         const loanTopUps = allTopUps?.filter((t: any) => t.loan_id === l.id) || [];
         const totalTopUp = loanTopUps.reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0) || 0;

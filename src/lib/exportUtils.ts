@@ -267,13 +267,6 @@ export const generatePaymentReceipt = (payment: any, loan: any, customer: any, s
     ['Amount Received', `INR ${payment.amount?.toLocaleString()}`],
   ];
   
-  if (payment.penalty > 0) {
-    paymentDetails.push(['Penalty Applied', `INR ${payment.penalty.toLocaleString()}`]);
-  }
-  if (payment.charges > 0) {
-    paymentDetails.push(['Other Charges', `INR ${payment.charges.toLocaleString()}`]);
-  }
-  
   autoTable(doc, {
     body: paymentDetails,
     startY: 115,

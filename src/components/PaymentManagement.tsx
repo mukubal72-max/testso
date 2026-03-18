@@ -234,12 +234,6 @@ export default function PaymentManagement() {
                   </div>
                   <div className="text-right flex flex-col items-end gap-1">
                     <p className="font-bold text-emerald-600">+ ₹{p.amount.toLocaleString()}</p>
-                    {(p.penalty > 0 || p.charges > 0) && (
-                      <div className="flex gap-2 text-[10px] font-medium">
-                        {p.penalty > 0 && <span className="text-rose-500">Penalty: ₹{p.penalty.toLocaleString()}</span>}
-                        {p.charges > 0 && <span className="text-amber-600">Charges: ₹{p.charges.toLocaleString()}</span>}
-                      </div>
-                    )}
                     <div className="flex items-center gap-2">
                       <p className="text-[10px] text-gray-400">Ref: {p.transaction_id || `PAY-${p.id}`}</p>
                       <div className="flex items-center gap-1">
@@ -405,9 +399,7 @@ export default function PaymentManagement() {
                 payment_mode: mode,
                 payment_type: type,
                 transaction_id: txId && String(txId).trim() !== "" ? String(txId).trim() : null,
-                remarks: remarks && String(remarks).trim() !== "" ? String(remarks).trim() : null,
-                penalty: Number(rawData.penalty) || 0,
-                charges: Number(rawData.charges) || 0
+                remarks: remarks && String(remarks).trim() !== "" ? String(remarks).trim() : null
               };
 
               console.log('Final Data Object for Supabase:');
@@ -541,7 +533,6 @@ export default function PaymentManagement() {
                     <option value="interest">Interest Only</option>
                     <option value="principal">Part Principal</option>
                     <option value="full_settlement">Full Settlement</option>
-                    <option value="penalty">Penalty Only</option>
                   </select>
                 </div>
               </div>
@@ -567,17 +558,6 @@ export default function PaymentManagement() {
                   onBlur={(e) => checkDuplicateTransaction(e.target.value)}
                 />
                 {isDuplicateTx && <p className="text-[10px] text-rose-500 font-bold">This Transaction ID already exists!</p>}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Penalty (₹)</label>
-                  <input name="penalty" type="number" className="input-field" placeholder="0.00" defaultValue="0" />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Other Charges (₹)</label>
-                  <input name="charges" type="number" className="input-field" placeholder="0.00" defaultValue="0" />
-                </div>
               </div>
 
               <div className="space-y-1">
