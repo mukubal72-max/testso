@@ -1,0 +1,7 @@
+{
+  "name": "Remix: DC Gold \u0026 Silver Girvi Loan Management",
+  "description": "Comprehensive software for managing gold and silver pledge loans, interest calculations, and inventory.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
