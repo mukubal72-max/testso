@@ -18,7 +18,7 @@ import {
   Trash2,
   CheckCircle2
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { exportToPDF, printTable, generateLoanReceipt } from '../lib/exportUtils';
 import { clsx, type ClassValue } from 'clsx';

@@ -7,4 +7,34 @@ if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KE
   console.warn('Supabase environment variables are missing. Using fallback values for development.');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+let supabase: any;
+
+try {
+  if (!supabaseUrl || !supabaseUrl.startsWith('https://')) {
+    throw new Error('Invalid Supabase URL. Please check your environment variables.');
+  }
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
+} catch (error) {
+  console.error('Failed to initialize Supabase client:', error);
+  // Create a mock client that throws on every call to help debug
+  supabase = {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: () => Promise.reject(new Error('Supabase not initialized correctly')),
+          order: () => Promise.reject(new Error('Supabase not initialized correctly')),
+        }),
+        order: () => Promise.reject(new Error('Supabase not initialized correctly')),
+      }),
+      insert: () => Promise.reject(new Error('Supabase not initialized correctly')),
+      update: () => Promise.reject(new Error('Supabase not initialized correctly')),
+      delete: () => Promise.reject(new Error('Supabase not initialized correctly')),
+    }),
+    auth: {
+      signInWithPassword: () => Promise.reject(new Error('Supabase not initialized correctly')),
+      signOut: () => Promise.reject(new Error('Supabase not initialized correctly')),
+    }
+  };
+}
+
+export { supabase };

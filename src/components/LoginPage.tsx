@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Lock, Mail, User, ShieldCheck, ChevronRight } from 'lucide-react';
 
 interface LoginPageProps {

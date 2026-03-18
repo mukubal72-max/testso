@@ -11,7 +11,7 @@ import {
   Database,
   Loader2
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
 
 import { format } from 'date-fns';

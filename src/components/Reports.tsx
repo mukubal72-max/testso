@@ -24,7 +24,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { exportToPDF, exportToExcel } from '../lib/exportUtils';
 

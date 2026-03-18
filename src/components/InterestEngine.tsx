@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   AlertCircle
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format, differenceInDays, addMonths } from 'date-fns';
 import { exportToPDF } from '../lib/exportUtils';
 

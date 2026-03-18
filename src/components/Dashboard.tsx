@@ -22,7 +22,7 @@ import {
   Bar,
   Cell
 } from 'recharts';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -134,7 +134,25 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
-  if (!stats && !error) return <div className="p-8 flex items-center justify-center min-h-[400px] text-gray-500">Loading Dashboard...</div>;
+  if (error) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[400px] text-rose-500 gap-4">
+        <AlertCircle size={48} />
+        <div className="text-center">
+          <h3 className="text-lg font-bold">Failed to load dashboard</h3>
+          <p className="text-sm opacity-80">{error}</p>
+        </div>
+        <button 
+          onClick={() => window.location.reload()}
+          className="btn-primary mt-4"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!stats) return <div className="p-8 flex items-center justify-center min-h-[400px] text-gray-500">Loading Dashboard...</div>;
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">

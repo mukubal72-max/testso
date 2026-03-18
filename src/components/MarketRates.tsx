@@ -1,6 +1,6 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, RefreshCw, Gem, Sparkles } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { GoogleGenAI } from "@google/genai";
 
 export default function MarketRates() {

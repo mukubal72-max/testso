@@ -10,7 +10,7 @@ import {
   Send,
   Filter
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 
 const alerts = [
   { id: 1, type: 'payment', customer: 'Rajesh Sharma', loan: 'LN-1001', amount: '₹2,500', due: 'Today', status: 'pending', channel: 'WhatsApp' },

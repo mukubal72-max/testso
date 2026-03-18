@@ -18,6 +18,7 @@ import CustomerPanel from './components/CustomerPanel';
 import AIInsights from './components/AIInsights';
 
 export default function App() {
+  console.log('Girvi Pro: App component is rendering');
   const [auth, setAuth] = React.useState<{ role: 'admin' | 'customer' | null, user: any }>(() => {
     try {
       const saved = localStorage.getItem('girvi_auth');

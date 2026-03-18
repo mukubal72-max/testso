@@ -4,6 +4,8 @@ import App from './App.tsx';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
+console.log('Girvi Pro: main.tsx is executing');
+
 // Global error handler to help debug white screen issues
 window.onerror = function(message, source, lineno, colno, error) {
   console.error('Global Error Caught:', { message, source, lineno, colno, error });

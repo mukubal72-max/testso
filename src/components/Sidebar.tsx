@@ -18,7 +18,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
