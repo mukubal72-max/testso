@@ -321,7 +321,9 @@ export default function CustomerManagement() {
   };
 
   const filteredCustomers = customers.filter(c => {
-    const matchesSearch = c.full_name.toLowerCase().includes(search.toLowerCase()) || c.mobile_number.includes(search);
+    const name = c.full_name || '';
+    const mobile = c.mobile_number || '';
+    const matchesSearch = name.toLowerCase().includes(search.toLowerCase()) || mobile.includes(search);
     if (activeTab === 'blacklist') return matchesSearch && c.status === 'blacklisted';
     if (activeTab === 'kyc') return matchesSearch; // Show all for KYC verification
     return matchesSearch;
@@ -715,15 +717,21 @@ export default function CustomerManagement() {
           >
             {/* Search & Filter */}
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-              <div className="relative w-full md:flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Search by name or mobile..." 
-                  className="input-field pl-10"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+              <div className="flex w-full md:flex-1 gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="Search by name or mobile..." 
+                    className="input-field pl-10"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <button className="btn-primary px-4 flex items-center gap-2">
+                  <Search size={18} />
+                  Search
+                </button>
               </div>
               <div className="flex items-center gap-2 w-full md:w-auto">
                 <button 

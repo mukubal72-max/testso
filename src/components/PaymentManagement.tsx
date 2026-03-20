@@ -40,6 +40,8 @@ export default function PaymentManagement() {
   const [paymentMode, setPaymentMode] = React.useState('Cash');
   const [transactionId, setTransactionId] = React.useState('');
   const [isDuplicateTx, setIsDuplicateTx] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+  const [loanSearch, setLoanSearch] = React.useState('');
 
   const fetchPayments = async () => {
     setIsLoadingPayments(true);
@@ -172,9 +174,19 @@ export default function PaymentManagement() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Recent Payments List */}
         <div className="lg:col-span-2 card">
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+          <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <h3 className="font-bold text-lg">Transaction History</h3>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Search transactions..." 
+                  className="input-field pl-9 py-1.5 text-sm w-full" 
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
               <button 
                 onClick={fetchPayments}
                 disabled={isLoadingPayments}
@@ -183,7 +195,6 @@ export default function PaymentManagement() {
               >
                 <TrendingUp size={18} className={cn(isLoadingPayments && "animate-spin")} />
               </button>
-              <button className="text-sm text-primary font-medium hover:underline">View All</button>
             </div>
           </div>
           <div className="divide-y divide-gray-100 min-h-[300px] flex flex-col">
@@ -206,14 +217,26 @@ export default function PaymentManagement() {
                   Try Again
                 </button>
               </div>
-            ) : payments.length === 0 ? (
+            ) : payments.filter(p => {
+              const term = search.toLowerCase();
+              return (p.loan_number?.toLowerCase().includes(term) || 
+                      p.customer_name?.toLowerCase().includes(term) || 
+                      p.transaction_id?.toLowerCase().includes(term) ||
+                      p.customer_mobile?.includes(term));
+            }).length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-gray-400">
                 <Receipt size={40} className="mx-auto mb-4 opacity-20" />
-                <p>No transactions found</p>
+                <p>{search ? 'No matching transactions' : 'No transactions found'}</p>
                 <p className="text-xs mt-1">New payments will appear here once recorded.</p>
               </div>
             ) : (
-              payments.map((p) => (
+              payments.filter(p => {
+                const term = search.toLowerCase();
+                return (p.loan_number?.toLowerCase().includes(term) || 
+                        p.customer_name?.toLowerCase().includes(term) || 
+                        p.transaction_id?.toLowerCase().includes(term) ||
+                        p.customer_mobile?.includes(term));
+              }).map((p) => (
                 <div key={p.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-all">
                   <div className="flex items-center gap-4">
                     <div className={cn(
@@ -313,6 +336,7 @@ export default function PaymentManagement() {
               <button onClick={() => {
                 setIsPaymentModalOpen(false);
                 setLastPayment(null);
+                setLoanSearch('');
               }} className="p-2 hover:bg-gray-100 rounded-full">
                 <X size={20} />
               </button>
@@ -346,6 +370,7 @@ export default function PaymentManagement() {
                     onClick={() => {
                       setIsPaymentModalOpen(false);
                       setLastPayment(null);
+                      setLoanSearch('');
                     }}
                     className="w-full py-3 border border-gray-200 rounded-xl hover:bg-gray-50 font-bold"
                   >
@@ -470,6 +495,7 @@ export default function PaymentManagement() {
                   customer_data: fullPayment.loans?.customers
                 });
                 fetchPayments();
+                setLoanSearch('');
               } catch (err: any) {
                 console.error('FATAL ERROR during payment submission:', err);
                 const errorMessage = err.message || 'Unknown error';
@@ -481,11 +507,29 @@ export default function PaymentManagement() {
                 console.log('--- PAYMENT SUBMISSION FINISHED ---');
               }
             }}>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Select Loan</label>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-medium">Select Loan</label>
+                  {loans.length > 5 && (
+                    <div className="relative w-48">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                      <input 
+                        type="text" 
+                        placeholder="Filter loans..." 
+                        className="w-full pl-7 pr-2 py-1 text-[10px] border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                        value={loanSearch}
+                        onChange={(e) => setLoanSearch(e.target.value)}
+                      />
+                    </div>
+                  )}
+                </div>
                 <select name="loan_id" required className="input-field">
                   <option value="">{loans.length === 0 ? "No active loans found" : "Choose loan..."}</option>
-                  {loans.map(l => (
+                  {loans.filter(l => {
+                    const term = loanSearch.toLowerCase();
+                    return l.loan_number?.toLowerCase().includes(term) || 
+                           l.customer_name?.toLowerCase().includes(term);
+                  }).map(l => (
                     <option key={l.id} value={l.id}>{l.loan_number} - {l.customer_name}</option>
                   ))}
                 </select>
@@ -566,7 +610,10 @@ export default function PaymentManagement() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setIsPaymentModalOpen(false)} className="px-6 py-2 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button type="button" onClick={() => {
+                  setIsPaymentModalOpen(false);
+                  setLoanSearch('');
+                }} className="px-6 py-2 border border-gray-200 rounded-lg hover:bg-gray-50">Cancel</button>
                 <button 
                   type="submit" 
                   disabled={isDuplicateTx || isSubmitting}
