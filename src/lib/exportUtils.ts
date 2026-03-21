@@ -7,37 +7,95 @@ export const exportToPDF = (title: string, headers: string[], data: any[][], fil
   const doc = new jsPDF();
   
   // Shop Header
+  let currentY = 15;
   if (settings) {
+    // Logo
+    if (settings.logo) {
+      try {
+        doc.addImage(settings.logo, 'PNG', 14, 10, 20, 20);
+      } catch (e) {
+        console.error('Error adding logo to PDF:', e);
+      }
+    }
+
     doc.setFontSize(20);
     doc.setTextColor(44, 90, 160);
-    doc.text(settings.shop_name || 'GOLD GIRVI MANAGEMENT', 105, 15, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.text(settings.branchName || settings.shop_name || 'GOLD GIRVI MANAGEMENT', 105, currentY, { align: 'center' });
+    currentY += 8;
     
     doc.setFontSize(9);
     doc.setTextColor(100);
-    doc.text(settings.shop_address || '', 105, 22, { align: 'center' });
-    doc.text(`Phone: ${settings.shop_mobile || ''}`, 105, 27, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    
+    const address = settings.branchAddress || settings.shop_address || '';
+    if (address) {
+      const addressLines = doc.splitTextToSize(address, 160);
+      doc.text(addressLines, 105, currentY, { align: 'center' });
+      currentY += (addressLines.length * 5);
+    }
+    
+    const phone = settings.contactNumber || settings.shop_mobile || '';
+    const gst = settings.gstNumber ? ' | GST: ' + settings.gstNumber : '';
+    if (phone || gst) {
+      doc.text(`Phone: ${phone}${gst}`, 105, currentY, { align: 'center' });
+      currentY += 5;
+    }
     
     doc.setDrawColor(200);
-    doc.line(14, 32, 196, 32);
+    doc.line(14, currentY, 196, currentY);
+    currentY += 10;
   }
 
   // Add Title
   doc.setFontSize(16);
   doc.setTextColor(0);
-  doc.text(title, 14, settings ? 42 : 22);
+  doc.setFont('helvetica', 'bold');
+  doc.text(title, 14, currentY);
+  currentY += 6;
+  
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text(`Generated on: ${format(new Date(), 'dd MMM yyyy HH:mm')}`, 14, settings ? 48 : 30);
-  
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Generated on: ${format(new Date(), 'dd MMM yyyy HH:mm')}`, 14, currentY);
+  currentY += 10;
+
+  // Dynamic column styles based on headers length
+  const columnStyles: any = {};
+  if (headers.length === 6) {
+    columnStyles[0] = { cellWidth: 25 }; // Date
+    columnStyles[1] = { cellWidth: 35 }; // Type
+    columnStyles[2] = { cellWidth: 25 }; // Ref
+    columnStyles[3] = { cellWidth: 25, halign: 'right' }; // Debit
+    columnStyles[4] = { cellWidth: 25, halign: 'right' }; // Credit
+    columnStyles[5] = { cellWidth: 'auto' }; // Remarks
+  }
+
   autoTable(doc, {
     head: [headers],
     body: data,
-    startY: settings ? 55 : 35,
+    startY: currentY,
     theme: 'grid',
-    headStyles: { fillColor: [44, 90, 160], textColor: 255 },
+    headStyles: { fillColor: [44, 90, 160], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [245, 245, 245] },
+    styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak' },
+    columnStyles
   });
   
+  const finalY = (doc as any).lastAutoTable.finalY + 30;
+  
+  // Signature Section
+  if (finalY < 270) {
+    doc.setDrawColor(200);
+    doc.line(20, finalY, 70, finalY);
+    doc.line(140, finalY, 190, finalY);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Customer Signature', 45, finalY + 7, { align: 'center' });
+    doc.text('Authorized Signatory', 165, finalY + 7, { align: 'center' });
+  }
+
   doc.save(`${filename}.pdf`);
 };
 
@@ -108,50 +166,82 @@ export const generateLoanReceipt = (loan: any, settings?: any) => {
   const doc = new jsPDF();
   
   // Header with Shop Info
-  doc.setFontSize(22);
-  doc.setTextColor(44, 90, 160);
-  doc.text(settings?.shop_name || 'GOLD GIRVI MANAGEMENT', 105, 20, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text(settings?.shop_address || 'Shop Address Not Set', 105, 27, { align: 'center' });
-  doc.text(`Phone: ${settings?.shop_mobile || 'N/A'}`, 105, 32, { align: 'center' });
-  
-  doc.setDrawColor(200);
-  doc.line(14, 38, 196, 38);
-  
+  let currentY = 15;
+  if (settings) {
+    if (settings.logo) {
+      try {
+        doc.addImage(settings.logo, 'PNG', 14, 10, 20, 20);
+      } catch (e) {
+        console.error('Error adding logo to PDF:', e);
+      }
+    }
+
+    doc.setFontSize(20);
+    doc.setTextColor(44, 90, 160);
+    doc.setFont('helvetica', 'bold');
+    doc.text(settings.branchName || settings.shop_name || 'GOLD GIRVI MANAGEMENT', 105, currentY, { align: 'center' });
+    currentY += 8;
+    
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.setFont('helvetica', 'normal');
+    
+    const address = settings.branchAddress || settings.shop_address || '';
+    if (address) {
+      const addressLines = doc.splitTextToSize(address, 160);
+      doc.text(addressLines, 105, currentY, { align: 'center' });
+      currentY += (addressLines.length * 5);
+    }
+    
+    const phone = settings.contactNumber || settings.shop_mobile || '';
+    const gst = settings.gstNumber ? ' | GST: ' + settings.gstNumber : '';
+    if (phone || gst) {
+      doc.text(`Phone: ${phone}${gst}`, 105, currentY, { align: 'center' });
+      currentY += 5;
+    }
+    
+    doc.setDrawColor(200);
+    doc.line(14, currentY, 196, currentY);
+    currentY += 10;
+  }
+
   // Receipt Title
   doc.setFontSize(16);
   doc.setTextColor(44, 90, 160);
   doc.setFont('helvetica', 'bold');
-  doc.text('LOAN DISBURSEMENT RECEIPT', 105, 48, { align: 'center' });
+  doc.text('LOAN DISBURSEMENT RECEIPT', 105, currentY, { align: 'center' });
+  currentY += 10;
   
   // Basic Info
   doc.setFontSize(10);
   doc.setTextColor(0);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Receipt No: ${loan.loan_number}`, 14, 58);
-  doc.text(`Date: ${format(new Date(loan.created_at), 'dd MMM yyyy HH:mm')}`, 14, 63);
+  doc.text(`Receipt No: ${loan.loan_number}`, 14, currentY);
+  currentY += 5;
+  doc.text(`Date: ${format(new Date(loan.created_at), 'dd MMM yyyy HH:mm')}`, 14, currentY);
+  currentY += 7;
   
   // Customer Info
   doc.setDrawColor(240);
   doc.setFillColor(250, 250, 250);
-  doc.rect(14, 70, 182, 30, 'F');
+  doc.rect(14, currentY, 182, 30, 'F');
 
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('Customer Details', 20, 78);
+  doc.text('Customer Details', 20, currentY + 8);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text(`Name: ${loan.customer_name}`, 20, 85);
-  doc.text(`Mobile: ${loan.customer_mobile}`, 20, 92);
+  doc.text(`Name: ${loan.customer_name}`, 20, currentY + 15);
+  doc.text(`Mobile: ${loan.customer_mobile}`, 20, currentY + 22);
+  currentY += 40;
   
   // Loan Details
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text('Loan Terms', 14, 110);
+  doc.text('Loan Terms', 14, currentY);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
+  currentY += 5;
   
   const loanDetails = [
     ['Principal Amount', `INR ${(loan.loan_amount || loan.amount)?.toLocaleString()}`],
@@ -163,7 +253,7 @@ export const generateLoanReceipt = (loan: any, settings?: any) => {
   
   autoTable(doc, {
     body: loanDetails,
-    startY: 115,
+    startY: currentY,
     theme: 'grid',
     styles: { fontSize: 10, cellPadding: 3 },
     columnStyles: { 0: { fontStyle: 'bold', fillColor: [245, 245, 245], cellWidth: 50 } }
@@ -217,48 +307,79 @@ export const generatePaymentReceipt = (payment: any, loan: any, customer: any, s
   const doc = new jsPDF();
   
   // Header with Shop Info
-  doc.setFontSize(22);
-  doc.setTextColor(44, 90, 160);
-  doc.text(settings?.shop_name || 'GOLD GIRVI MANAGEMENT', 105, 20, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.setTextColor(100);
-  doc.text(settings?.shop_address || 'Shop Address Not Set', 105, 27, { align: 'center' });
-  doc.text(`Phone: ${settings?.shop_mobile || 'N/A'}`, 105, 32, { align: 'center' });
-  
-  doc.setDrawColor(200);
-  doc.line(14, 38, 196, 38);
-  
+  let currentY = 15;
+  if (settings) {
+    if (settings.logo) {
+      try {
+        doc.addImage(settings.logo, 'PNG', 14, 10, 20, 20);
+      } catch (e) {
+        console.error('Error adding logo to PDF:', e);
+      }
+    }
+
+    doc.setFontSize(20);
+    doc.setTextColor(44, 90, 160);
+    doc.setFont('helvetica', 'bold');
+    doc.text(settings.branchName || settings.shop_name || 'GOLD GIRVI MANAGEMENT', 105, currentY, { align: 'center' });
+    currentY += 8;
+    
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.setFont('helvetica', 'normal');
+    
+    const address = settings.branchAddress || settings.shop_address || '';
+    if (address) {
+      const addressLines = doc.splitTextToSize(address, 160);
+      doc.text(addressLines, 105, currentY, { align: 'center' });
+      currentY += (addressLines.length * 5);
+    }
+    
+    const phone = settings.contactNumber || settings.shop_mobile || '';
+    const gst = settings.gstNumber ? ' | GST: ' + settings.gstNumber : '';
+    if (phone || gst) {
+      doc.text(`Phone: ${phone}${gst}`, 105, currentY, { align: 'center' });
+      currentY += 5;
+    }
+    
+    doc.setDrawColor(200);
+    doc.line(14, currentY, 196, currentY);
+    currentY += 10;
+  }
+
   // Receipt Title
   doc.setFontSize(16);
   doc.setTextColor(44, 90, 160);
   doc.setFont('helvetica', 'bold');
-  doc.text('PAYMENT RECEIPT', 105, 48, { align: 'center' });
+  doc.text('PAYMENT RECEIPT', 105, currentY, { align: 'center' });
+  currentY += 10;
   
   // Basic Info
   doc.setFontSize(10);
   doc.setTextColor(0);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Receipt Date: ${format(new Date(payment.payment_date || payment.created_at), 'dd MMM yyyy HH:mm')}`, 14, 58);
-  doc.text(`Transaction ID: ${payment.transaction_id || 'N/A'}`, 14, 63);
+  doc.text(`Receipt Date: ${format(new Date(payment.payment_date || payment.created_at), 'dd MMM yyyy HH:mm')}`, 14, currentY);
+  currentY += 5;
+  doc.text(`Transaction ID: ${payment.transaction_id || 'N/A'}`, 14, currentY);
+  currentY += 7;
   
   // Customer & Loan Info
   doc.setDrawColor(240);
   doc.setFillColor(250, 250, 250);
-  doc.rect(14, 70, 182, 35, 'F');
+  doc.rect(14, currentY, 182, 35, 'F');
   
   doc.setFont('helvetica', 'bold');
-  doc.text('Customer Details', 20, 78);
+  doc.text('Customer Details', 20, currentY + 8);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Name: ${customer?.full_name}`, 20, 85);
-  doc.text(`Customer ID: ${customer?.id || customer?.portal_user_id}`, 20, 92);
-  doc.text(`Phone: ${customer?.mobile_number}`, 20, 99);
+  doc.text(`Name: ${customer?.full_name}`, 20, currentY + 15);
+  doc.text(`Customer ID: ${customer?.id || customer?.portal_user_id}`, 20, currentY + 22);
+  doc.text(`Phone: ${customer?.mobile_number}`, 20, currentY + 29);
   
   doc.setFont('helvetica', 'bold');
-  doc.text('Loan Details', 110, 78);
+  doc.text('Loan Details', 110, currentY + 8);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Loan No: ${loan?.loan_number}`, 110, 85);
-  doc.text(`Loan Amount: INR ${loan?.loan_amount?.toLocaleString()}`, 110, 92);
+  doc.text(`Loan No: ${loan?.loan_number}`, 110, currentY + 15);
+  doc.text(`Loan Amount: INR ${loan?.loan_amount?.toLocaleString()}`, 110, currentY + 22);
+  currentY += 45;
   
   // Payment Details Table
   const paymentDetails = [

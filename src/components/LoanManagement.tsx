@@ -31,6 +31,8 @@ function cn(...inputs: ClassValue[]) {
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
+import { fetchMarketRates, MarketRatesData } from '../services/marketService';
+
 export default function LoanManagement() {
   const [loans, setLoans] = React.useState<any[]>([]);
   const [search, setSearch] = React.useState('');
@@ -44,8 +46,9 @@ export default function LoanManagement() {
   const [topUpDate, setTopUpDate] = React.useState(format(new Date(), 'yyyy-MM-dd'));
   const [topUpRemarks, setTopUpRemarks] = React.useState('');
   const [customers, setCustomers] = React.useState<any[]>([]);
+  const [marketRates, setMarketRates] = React.useState<MarketRatesData | null>(null);
   const [items, setItems] = React.useState<any[]>([
-    { type: 'Gold Ornament', purity: '22K', gross_weight: 10.5, net_weight: 10.2, wastage: 0, market_rate: 6500, valuation: 66300, packet_number: 'PKT-001', locker_location: 'Locker A-1', photos: [] }
+    { type: 'Gold Ornament', purity: '22K', gross_weight: 0, net_weight: 0, wastage: 0, market_rate: 0, valuation: 0, packet_number: '', locker_location: '', photos: [] }
   ]);
   const [settings, setSettings] = React.useState<any>(null);
   const [confirmModal, setConfirmModal] = React.useState<{
@@ -163,9 +166,47 @@ export default function LoanManagement() {
 
         const { data: settingsData } = await supabase
           .from('settings')
-          .select('*')
-          .maybeSingle();
-        if (settingsData) setSettings(settingsData);
+          .select('*');
+        
+        const settingsObj = settingsData?.reduce((acc: any, curr: any) => {
+          acc[curr.key] = curr.value;
+          return acc;
+        }, {}) || {};
+        
+        setSettings(settingsObj);
+
+        // Fetch Live Market Rates
+        try {
+          const rates = await fetchMarketRates();
+          setMarketRates(rates);
+          
+          // Update initial item with market rates if available
+          setItems(prev => prev.map(item => {
+            let rate = 0;
+            if (item.type.toLowerCase().includes('gold')) {
+              rate = item.purity === '24K' ? rates.gold24k / 10 : rates.gold22k / 10;
+            } else if (item.type.toLowerCase().includes('silver')) {
+              rate = rates.silver / 1000;
+            }
+            
+            // Prefer settings if available
+            if (item.purity === '24K' && settingsObj.gold24k) rate = Number(settingsObj.gold24k) / 10;
+            if (item.purity === '22K' && settingsObj.gold22k) rate = Number(settingsObj.gold22k) / 10;
+            if (item.type.toLowerCase().includes('silver') && settingsObj.silver) rate = Number(settingsObj.silver) / 1000;
+
+            return { ...item, market_rate: rate };
+          }));
+        } catch (rateErr) {
+          console.error('Error fetching market rates in LoanManagement:', rateErr);
+          // Fallback to settings if AI fails
+          setItems(prev => prev.map(item => {
+            let rate = 0;
+            if (item.purity === '24K' && settingsObj.gold24k) rate = Number(settingsObj.gold24k) / 10;
+            if (item.purity === '22K' && settingsObj.gold22k) rate = Number(settingsObj.gold22k) / 10;
+            if (item.type.toLowerCase().includes('silver') && settingsObj.silver) rate = Number(settingsObj.silver) / 1000;
+            return { ...item, market_rate: rate };
+          }));
+        }
       } catch (err) {
         console.error('Error fetching initial data:', err);
       }
@@ -285,7 +326,26 @@ export default function LoanManagement() {
   };
 
   const addItem = () => {
-    setItems([...items, { type: 'Gold Ornament', purity: '22K', gross_weight: 0, net_weight: 0, wastage: 0, market_rate: 0, valuation: 0, packet_number: '', locker_location: '', photos: [] }]);
+    let defaultRate = 0;
+    if (marketRates) {
+      defaultRate = marketRates.gold22k / 10;
+    }
+    if (settings?.gold22k) {
+      defaultRate = Number(settings.gold22k) / 10;
+    }
+
+    setItems([...items, { 
+      type: 'Gold Ornament', 
+      purity: '22K', 
+      gross_weight: 0, 
+      net_weight: 0, 
+      wastage: 0, 
+      market_rate: defaultRate, 
+      valuation: 0, 
+      packet_number: '', 
+      locker_location: '', 
+      photos: [] 
+    }]);
   };
 
   const removeItem = (index: number) => {
@@ -295,10 +355,31 @@ export default function LoanManagement() {
   const updateItem = (index: number, field: string, value: any) => {
     const newItems = [...items];
     newItems[index] = { ...newItems[index], [field]: value };
-    
+
+    // Auto-update rate based on type/purity if it's a change to those fields
+    if (field === 'type' || field === 'purity') {
+      let rate = 0;
+      const type = (newItems[index].type || '').toLowerCase();
+      const purity = newItems[index].purity;
+
+      if (type.includes('gold')) {
+        if (purity === '24K') {
+          rate = settings?.gold24k ? Number(settings.gold24k) / 10 : (marketRates?.gold24k ? marketRates.gold24k / 10 : 0);
+        } else {
+          rate = settings?.gold22k ? Number(settings.gold22k) / 10 : (marketRates?.gold22k ? marketRates.gold22k / 10 : 0);
+        }
+      } else if (type.includes('silver')) {
+        rate = settings?.silver ? Number(settings.silver) / 1000 : (marketRates?.silver ? marketRates.silver / 1000 : 0);
+      }
+      
+      if (rate > 0) {
+        newItems[index].market_rate = rate;
+      }
+    }
+
     // Auto-calculate valuation if weights or rates change
-    if (field === 'net_weight' || field === 'market_rate') {
-      newItems[index].valuation = Number(newItems[index].net_weight) * Number(newItems[index].market_rate);
+    if (field === 'net_weight' || field === 'market_rate' || field === 'type' || field === 'purity') {
+      newItems[index].valuation = Number(newItems[index].net_weight || 0) * Number(newItems[index].market_rate || 0);
     }
     
     setItems(newItems);

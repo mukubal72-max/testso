@@ -37,6 +37,7 @@ export default function LegalDocs() {
   const [isGenerateModalOpen, setIsGenerateModalOpen] = React.useState(false);
   const [viewingDoc, setViewingDoc] = React.useState<any>(null);
   const [editingDoc, setEditingDoc] = React.useState<any>(null);
+  const [settings, setSettings] = React.useState<any>(null);
   const [selectedTemplate, setSelectedTemplate] = React.useState<any>(null);
   const [selectedLoanId, setSelectedLoanId] = React.useState('');
   const [uploadData, setUploadData] = React.useState({
@@ -49,7 +50,24 @@ export default function LegalDocs() {
   React.useEffect(() => {
     fetchDocs();
     fetchLoans();
+    fetchSettings();
   }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase.from('settings').select('*');
+      if (error) throw error;
+      if (data) {
+        const settingsObj = data.reduce((acc: any, curr: any) => {
+          acc[curr.key] = curr.value;
+          return acc;
+        }, {});
+        setSettings(settingsObj);
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    }
+  };
 
   const fetchDocs = async () => {
     try {
@@ -198,7 +216,7 @@ export default function LegalDocs() {
         ['Document Type', doc.type.replace('_', ' ').toUpperCase()],
         ['Generated Date', format(new Date(doc.created_at), 'dd MMM yyyy')],
       ];
-      exportToPDF(doc.title, headers, data, doc.title.replace(/\s+/g, '_'));
+      exportToPDF(doc.title, headers, data, doc.title.replace(/\s+/g, '_'), settings);
       return;
     }
     

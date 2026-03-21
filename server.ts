@@ -472,19 +472,39 @@ async function setupApp() {
       const { data: payments } = await supabase
         .from('payments')
         .select('*, loans(loan_number, customers(full_name))')
-        .eq('payment_mode', 'cash')
+        .eq('payment_mode', 'Cash')
         .gte('payment_date', startDate || '1970-01-01')
         .lte('payment_date', endDate || '9999-12-31');
 
-      res.json(payments?.map(p => ({
-        direction: 'IN',
-        amount: p.amount,
-        date: p.payment_date,
-        type: p.payment_type,
-        loan_number: p.loans?.loan_number,
-        customer_name: p.loans?.customers?.full_name,
-        remarks: p.remarks
-      })) || []);
+      const { data: loans } = await supabase
+        .from('loans')
+        .select('*, customers(full_name)')
+        .eq('disbursement_mode', 'Cash')
+        .gte('start_date', startDate || '1970-01-01')
+        .lte('start_date', endDate || '9999-12-31');
+
+      const transactions = [
+        ...(payments?.map(p => ({
+          direction: 'IN (Credit)',
+          amount: p.amount,
+          date: p.payment_date,
+          type: `Payment (${p.payment_type})`,
+          loan_number: p.loans?.loan_number,
+          customer_name: p.loans?.customers?.full_name,
+          remarks: p.remarks
+        })) || []),
+        ...(loans?.map(l => ({
+          direction: 'OUT (Debit)',
+          amount: l.loan_amount,
+          date: l.start_date,
+          type: 'Disbursement (Loan)',
+          loan_number: l.loan_number,
+          customer_name: l.customers?.full_name,
+          remarks: l.remarks
+        })) || [])
+      ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      res.json(transactions);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -496,18 +516,39 @@ async function setupApp() {
       const { data: payments } = await supabase
         .from('payments')
         .select('*, loans(loan_number, customers(full_name))')
-        .neq('payment_mode', 'cash')
+        .neq('payment_mode', 'Cash')
         .gte('payment_date', startDate || '1970-01-01')
         .lte('payment_date', endDate || '9999-12-31');
 
-      res.json(payments?.map(p => ({
-        date: p.payment_date,
-        type: p.payment_type,
-        customer_name: p.loans?.customers?.full_name,
-        mode: p.payment_mode,
-        transaction_id: p.transaction_id,
-        amount: p.amount
-      })) || []);
+      const { data: loans } = await supabase
+        .from('loans')
+        .select('*, customers(full_name)')
+        .neq('disbursement_mode', 'Cash')
+        .gte('start_date', startDate || '1970-01-01')
+        .lte('start_date', endDate || '9999-12-31');
+
+      const transactions = [
+        ...(payments?.map(p => ({
+          date: p.payment_date,
+          type: `Payment (${p.payment_type})`,
+          customer_name: p.loans?.customers?.full_name,
+          mode: p.payment_mode,
+          transaction_id: p.transaction_id,
+          amount: p.amount,
+          direction: 'IN (Credit)'
+        })) || []),
+        ...(loans?.map(l => ({
+          date: l.start_date,
+          type: 'Disbursement (Loan)',
+          customer_name: l.customers?.full_name,
+          mode: l.disbursement_mode,
+          transaction_id: l.disbursement_transaction_id,
+          amount: l.loan_amount,
+          direction: 'OUT (Debit)'
+        })) || [])
+      ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      res.json(transactions);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -584,7 +625,32 @@ async function setupApp() {
         .eq('customer_id', req.params.id)
         .order('payment_date', { ascending: true });
       
-      res.json({ payments: payments?.map(p => ({ ...p, loan_number: p.loans?.loan_number })) || [] });
+      const { data: loans } = await supabase
+        .from('loans')
+        .select('*')
+        .eq('customer_id', req.params.id)
+        .order('start_date', { ascending: true });
+
+      const transactions = [
+        ...(loans?.map(l => ({
+          date: l.start_date,
+          type: 'Loan Disbursement',
+          ref: l.loan_number,
+          debit: l.loan_amount,
+          credit: 0,
+          remarks: `Loan disbursed via ${l.disbursement_mode}${l.disbursement_transaction_id ? ' (Ref: ' + l.disbursement_transaction_id + ')' : ''}`
+        })) || []),
+        ...(payments?.map(p => ({
+          date: p.payment_date,
+          type: `Payment (${p.payment_type})`,
+          ref: p.loans?.loan_number || p.transaction_id || '-',
+          debit: 0,
+          credit: p.amount,
+          remarks: `${p.remarks || ''} (Mode: ${p.payment_mode}${p.transaction_id ? ', Ref: ' + p.transaction_id : ''})`.trim()
+        })) || [])
+      ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      res.json({ transactions });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

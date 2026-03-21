@@ -238,8 +238,15 @@ export default function CustomerManagement() {
 
   const fetchSettings = async () => {
     try {
-      const { data } = await supabase.from('settings').select('*').maybeSingle();
-      if (data) setSettings(data);
+      const { data, error } = await supabase.from('settings').select('*');
+      if (error) throw error;
+      if (data) {
+        const settingsObj = data.reduce((acc: any, curr: any) => {
+          acc[curr.key] = curr.value;
+          return acc;
+        }, {});
+        setSettings(settingsObj);
+      }
     } catch (err) {
       console.error('Error fetching settings:', err);
     }
@@ -338,7 +345,7 @@ export default function CustomerManagement() {
       c.full_address || 'N/A',
       c.status
     ]);
-    printTable('Customer List', headers, data);
+    printTable('Customer List', headers, data, settings);
   };
 
   const handleDownloadCustomers = () => {
@@ -350,7 +357,7 @@ export default function CustomerManagement() {
       c.full_address || 'N/A',
       c.status
     ]);
-    exportToPDF('Customer List', headers, data, 'Customer_List');
+    exportToPDF('Customer List', headers, data, 'Customer_List', settings);
   };
 
   const updateCustomerStatus = async (id: number, status: string) => {

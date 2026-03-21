@@ -50,6 +50,27 @@ export default function InterestEngine() {
     start_date: new Date().toISOString().split('T')[0],
     maturity_date: format(addMonths(new Date(), 12), 'yyyy-MM-dd')
   });
+  const [settings, setSettings] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase.from('settings').select('*');
+      if (error) throw error;
+      if (data) {
+        const settingsObj = data.reduce((acc: any, curr: any) => {
+          acc[curr.key] = curr.value;
+          return acc;
+        }, {});
+        setSettings(settingsObj);
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    }
+  };
 
   const calculateInterest = () => {
     if (!loanData) return;
@@ -169,7 +190,8 @@ export default function InterestEngine() {
       `Payment Schedule - Loan ${loanData.loan_number}`,
       headers,
       data,
-      `Schedule_Loan_${loanData.loan_number}`
+      `Schedule_Loan_${loanData.loan_number}`,
+      settings
     );
   };
 

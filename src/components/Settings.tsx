@@ -18,7 +18,8 @@ import {
   RefreshCw,
   Camera,
   Upload,
-  Trash2
+  Trash2,
+  TrendingUp
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
@@ -30,6 +31,7 @@ function cn(...inputs: ClassValue[]) {
 
 const sections = [
   { id: 'general', title: 'General Settings', icon: Globe, description: 'Branch info, currency, and localization' },
+  { id: 'market', title: 'Market Rates', icon: TrendingUp, description: 'Set current gold and silver rates' },
   { id: 'interest', title: 'Interest Rate Table', icon: CreditCard, description: 'Manage standard and penalty rates' },
   { id: 'customers', title: 'Customer Credentials', icon: Users, description: 'Manage Customer Panel IDs and Passwords' },
   { id: 'users', title: 'User Management', icon: UserCog, description: 'Role-based access and staff accounts' },
@@ -302,6 +304,59 @@ export default function Settings() {
                       onChange={(e) => updateSetting('financialYearStart', e.target.value)}
                     />
                   </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'market' && (
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Gold 24K (per 10g)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
+                      <input 
+                        type="number"
+                        className="input-field pl-8" 
+                        value={settings.gold24k || ''} 
+                        onChange={(e) => updateSetting('gold24k', e.target.value)}
+                        placeholder="e.g. 72000"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Gold 22K (per 10g)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
+                      <input 
+                        type="number"
+                        className="input-field pl-8" 
+                        value={settings.gold22k || ''} 
+                        onChange={(e) => updateSetting('gold22k', e.target.value)}
+                        placeholder="e.g. 66000"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">Silver (per 1kg)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">₹</span>
+                      <input 
+                        type="number"
+                        className="input-field pl-8" 
+                        value={settings.silver || ''} 
+                        onChange={(e) => updateSetting('silver', e.target.value)}
+                        placeholder="e.g. 85000"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="p-4 bg-amber-50 rounded-xl border border-amber-100 flex gap-3">
+                  <AlertCircle className="text-amber-500 shrink-0" size={20} />
+                  <p className="text-sm text-amber-800">
+                    These rates will be used as default values when creating new loans. 
+                    The AI-powered live rates on the dashboard are for reference only.
+                  </p>
                 </div>
               </div>
             )}

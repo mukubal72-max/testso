@@ -1,57 +1,19 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, RefreshCw, Gem, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { GoogleGenAI } from "@google/genai";
+import { fetchMarketRates, MarketRatesData } from '../services/marketService';
 
 export default function MarketRates() {
-  const [rates, setRates] = React.useState<any>(null);
+  const [rates, setRates] = React.useState<MarketRatesData | null>(null);
   const [loading, setLoading] = React.useState(false);
-  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
 
-  const fetchRates = async () => {
+  const loadRates = async () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      
-      if (!apiKey || apiKey === 'undefined') {
-        throw new Error('Gemini API Key is missing. Please set GEMINI_API_KEY in your environment variables.');
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [{ parts: [{ text: "Get current gold and silver rates in India for today." }] }],
-        config: {
-          systemInstruction: "You are a financial data assistant. Provide the current market rates for Gold (24K, 22K per 10g) and Silver (per 1kg) in India (INR). Return ONLY a JSON object.",
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              gold24k: { type: "number" },
-              gold22k: { type: "number" },
-              silver: { type: "number" },
-              trend: { type: "string", enum: ["up", "down", "stable"] },
-              change: { type: "number" }
-            },
-            required: ["gold24k", "gold22k", "silver", "trend", "change"]
-          },
-          tools: [{ googleSearch: {} }]
-        }
-      });
-
-      if (response.text) {
-        const data = JSON.parse(response.text);
-        if (data.gold24k) {
-          setRates(data);
-          setLastUpdated(new Date());
-        } else {
-          throw new Error('Invalid data format received');
-        }
-      } else {
-        throw new Error('No response from AI');
-      }
+      const data = await fetchMarketRates();
+      setRates(data);
     } catch (error: any) {
       console.error('Error fetching market rates:', error);
       setFetchError(error.message || 'Failed to fetch rates');
@@ -61,8 +23,8 @@ export default function MarketRates() {
   };
 
   React.useEffect(() => {
-    fetchRates();
-    const interval = setInterval(fetchRates, 3600000); // Update every hour
+    loadRates();
+    const interval = setInterval(loadRates, 3600000); // Update every hour
     return () => clearInterval(interval);
   }, []);
 
@@ -86,7 +48,7 @@ export default function MarketRates() {
           <p className="text-[10px] text-gray-400 mt-1">Live rates could not be fetched</p>
         </div>
         <button 
-          onClick={fetchRates}
+          onClick={loadRates}
           className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
         >
           <RefreshCw size={12} />
@@ -111,7 +73,7 @@ export default function MarketRates() {
           <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest mt-1">India (INR)</p>
         </div>
         <button 
-          onClick={fetchRates}
+          onClick={loadRates}
           disabled={loading}
           className="p-2 hover:bg-gray-100 rounded-lg transition-all text-gray-400 hover:text-primary"
         >
@@ -151,9 +113,9 @@ export default function MarketRates() {
           <Sparkles size={12} />
           AI POWERED
         </div>
-        {lastUpdated && (
+        {rates?.lastUpdated && (
           <p className="text-[10px] text-gray-400 font-medium">
-            Updated: {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            Updated: {new Date(rates.lastUpdated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>
         )}
       </div>

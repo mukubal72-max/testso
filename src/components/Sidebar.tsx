@@ -21,6 +21,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { supabase } from '../lib/supabase';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -60,6 +61,32 @@ export default function Sidebar({ onLogout }: { onLogout: () => void }) {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const [alertCount, setAlertCount] = React.useState(0);
+
+  React.useEffect(() => {
+    async function fetchAlertCount() {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        // Count overdue loans
+        const { count, error } = await supabase
+          .from('loans')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'active')
+          .lt('maturity_date', today);
+        
+        if (!error) {
+          setAlertCount(count || 0);
+        }
+      } catch (err) {
+        console.error('Error fetching alert count:', err);
+      }
+    }
+    fetchAlertCount();
+    // Refresh every 5 minutes
+    const interval = setInterval(fetchAlertCount, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -118,6 +145,7 @@ export default function Sidebar({ onLogout }: { onLogout: () => void }) {
           <ul className="space-y-1 px-3">
             {menuItems.map((item) => {
               const isActive = location.pathname === item.path;
+              const isAlerts = item.path === '/alerts';
               return (
                 <li key={item.path}>
                   <Link
@@ -139,10 +167,18 @@ export default function Sidebar({ onLogout }: { onLogout: () => void }) {
                       <motion.span
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="whitespace-nowrap"
+                        className="whitespace-nowrap flex-1"
                       >
                         {item.label}
                       </motion.span>
+                    )}
+                    {isAlerts && alertCount > 0 && (
+                      <span className={cn(
+                        "bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center",
+                        !isOpen && "absolute top-2 right-2"
+                      )}>
+                        {alertCount}
+                      </span>
                     )}
                     {isActive && (
                       <motion.div
