@@ -126,9 +126,43 @@ export default function Alerts() {
     fetchAlerts();
   }, []);
 
-  const handleSendAlert = async (alert: any) => {
-    // In a real app, this would call a WhatsApp/SMS API
-    alert(`Sending ${alert.type} alert to ${alert.customer} (${alert.mobile}) via ${alert.channel}`);
+  const handleSendAlert = (alertData: any) => {
+    const message = `*Reminder from Girvi Management*\n\nDear ${alertData.customer},\n\nThis is a reminder regarding your loan *${alertData.loan}*.\n\n*Details:*\nType: ${alertData.type === 'payment' ? 'Interest Payment Due' : 
+                   alertData.type === 'overdue' ? 'Loan Overdue Notice' : 
+                   alertData.type === 'maturity' ? 'Loan Maturity Reminder' : 'Final Auction Warning'}\nAmount: ${alertData.amount}\nStatus: ${alertData.due}\n\nPlease contact us for more details.\n\nThank you!`;
+    
+    const cleanMobile = alertData.mobile?.replace(/\D/g, '');
+    const mobileWithCode = cleanMobile?.length === 10 ? `91${cleanMobile}` : cleanMobile;
+    
+    if (alertData.channel === 'WhatsApp' && mobileWithCode) {
+      const url = `https://wa.me/${mobileWithCode}?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
+      
+      // Update stats locally for demo purposes
+      setStats(prev => ({ ...prev, sentToday: prev.sentToday + 1 }));
+      setAlerts(prev => prev.filter(a => a.id !== alertData.id));
+    } else {
+      window.alert(`Sending ${alertData.type} alert to ${alertData.customer} (${alertData.mobile}) via ${alertData.channel}\n\nMessage: ${message}`);
+      setStats(prev => ({ ...prev, sentToday: prev.sentToday + 1 }));
+      setAlerts(prev => prev.filter(a => a.id !== alertData.id));
+    }
+  };
+
+  const handleBulkWhatsApp = () => {
+    const pendingAlerts = alerts.filter(a => a.channel === 'WhatsApp' && a.mobile);
+    if (pendingAlerts.length === 0) {
+      window.alert('No pending WhatsApp alerts found.');
+      return;
+    }
+    
+    if (window.confirm(`Send WhatsApp alerts to ${pendingAlerts.length} customers? (Note: Browser may block multiple popups)`)) {
+      // For bulk, we'll just open the first one and let the user know
+      // Opening many tabs at once is usually blocked and bad UX
+      handleSendAlert(pendingAlerts[0]);
+      if (pendingAlerts.length > 1) {
+        window.alert(`First alert opened. Please send remaining ${pendingAlerts.length - 1} alerts individually to avoid browser blocking.`);
+      }
+    }
   };
 
   if (loading) {
@@ -147,11 +181,17 @@ export default function Alerts() {
           <p className="text-gray-500 mt-1">Automated reminders and critical notices</p>
         </div>
         <div className="flex gap-3">
-          <button className="btn-secondary flex items-center gap-2">
+          <button 
+            onClick={handleBulkWhatsApp}
+            className="btn-secondary flex items-center gap-2"
+          >
             <MessageSquare size={18} />
             Bulk WhatsApp
           </button>
-          <button className="btn-primary flex items-center gap-2">
+          <button 
+            onClick={() => window.alert('SMS integration requires a gateway provider (e.g., Twilio, TextLocal).')}
+            className="btn-primary flex items-center gap-2"
+          >
             <Smartphone size={18} />
             Send SMS
           </button>
