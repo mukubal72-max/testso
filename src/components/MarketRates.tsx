@@ -13,7 +13,13 @@ export default function MarketRates() {
     setLoading(true);
     setFetchError(null);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = process.env.GEMINI_API_KEY;
+      
+      if (!apiKey || apiKey === 'undefined') {
+        throw new Error('Gemini API Key is missing. Please set GEMINI_API_KEY in your environment variables.');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: [{ parts: [{ text: "Get current gold and silver rates in India for today." }] }],
