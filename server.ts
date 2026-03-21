@@ -63,7 +63,7 @@ async function setupApp() {
     try {
       const { username, password } = req.body;
       
-      if (username === 'admin' && password === '12345') {
+      if (username === 'admin@gmail.com' && password === '12345@Dc') {
         return res.json({ role: 'admin', user: { id: 'admin', name: 'Administrator' } });
       }
 

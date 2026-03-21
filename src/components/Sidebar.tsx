@@ -45,6 +45,23 @@ export default function Sidebar({ onLogout }: { onLogout: () => void }) {
   const location = useLocation();
   const [isOpen, setIsOpen] = React.useState(true);
 
+  // Initialize isOpen based on screen width
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) {
+        setIsOpen(false);
+      } else {
+        setIsOpen(true);
+      }
+    };
+
+    // Set initial state
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <>
       {/* Mobile Menu Toggle */}
@@ -63,7 +80,7 @@ export default function Sidebar({ onLogout }: { onLogout: () => void }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="lg:hidden fixed inset-0 bg-black/50 z-30 backdrop-blur-sm"
+            className="lg:hidden fixed inset-0 bg-black/20 z-30"
           />
         )}
       </AnimatePresence>
@@ -105,6 +122,11 @@ export default function Sidebar({ onLogout }: { onLogout: () => void }) {
                 <li key={item.path}>
                   <Link
                     to={item.path}
+                    onClick={() => {
+                      if (window.innerWidth < 1024) {
+                        setIsOpen(false);
+                      }
+                    }}
                     className={cn(
                       "flex items-center gap-3 px-3 py-3 rounded-lg transition-all group relative",
                       isActive 

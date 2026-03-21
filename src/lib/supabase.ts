@@ -13,7 +13,13 @@ try {
   if (!supabaseUrl || !supabaseUrl.startsWith('https://')) {
     throw new Error('Invalid Supabase URL. Please check your environment variables.');
   }
-  supabase = createClient(supabaseUrl, supabaseAnonKey);
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        'x-app-secret': 'girvi-pro-protected-access-2026'
+      }
+    }
+  });
 } catch (error) {
   console.error('Failed to initialize Supabase client:', error);
   // Create a mock client that throws on every call to help debug

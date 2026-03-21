@@ -7,14 +7,16 @@ export default function MarketRates() {
   const [rates, setRates] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(false);
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
+  const [fetchError, setFetchError] = React.useState<string | null>(null);
 
   const fetchRates = async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: "Get current gold and silver rates in India.",
+        contents: [{ parts: [{ text: "Get current gold and silver rates in India for today." }] }],
         config: {
           systemInstruction: "You are a financial data assistant. Provide the current market rates for Gold (24K, 22K per 10g) and Silver (per 1kg) in India (INR). Return ONLY a JSON object.",
           responseMimeType: "application/json",
@@ -28,17 +30,25 @@ export default function MarketRates() {
               change: { type: "number" }
             },
             required: ["gold24k", "gold22k", "silver", "trend", "change"]
-          }
+          },
+          tools: [{ googleSearch: {} }]
         }
       });
 
-      const data = JSON.parse(response.text || '{}');
-      if (data.gold24k) {
-        setRates(data);
-        setLastUpdated(new Date());
+      if (response.text) {
+        const data = JSON.parse(response.text);
+        if (data.gold24k) {
+          setRates(data);
+          setLastUpdated(new Date());
+        } else {
+          throw new Error('Invalid data format received');
+        }
+      } else {
+        throw new Error('No response from AI');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching market rates:', error);
+      setFetchError(error.message || 'Failed to fetch rates');
     } finally {
       setLoading(false);
     }
@@ -55,6 +65,27 @@ export default function MarketRates() {
       <div className="card p-6 h-full flex flex-col items-center justify-center space-y-4">
         <RefreshCw className="animate-spin text-primary" size={24} />
         <p className="text-xs text-gray-500 font-medium">Fetching live market rates...</p>
+      </div>
+    );
+  }
+
+  if (fetchError && !rates) {
+    return (
+      <div className="card p-6 h-full flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center">
+          <TrendingDown size={24} />
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-gray-500 font-medium">Market data unavailable</p>
+          <p className="text-[10px] text-gray-400 mt-1">Live rates could not be fetched</p>
+        </div>
+        <button 
+          onClick={fetchRates}
+          className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+        >
+          <RefreshCw size={12} />
+          Retry
+        </button>
       </div>
     );
   }
