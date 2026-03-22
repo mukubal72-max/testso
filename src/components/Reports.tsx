@@ -166,17 +166,36 @@ export default function Reports() {
   };
 
   const generateActiveLoansReport = () => {
-    const headers = ['Loan #', 'Customer', 'Amount', 'Interest', 'Maturity', 'Start Date'];
+    const headers = ['Loan #', 'Customer', 'Principal', 'Accrued Int.', 'Paid', 'Outstanding', 'Maturity'];
     const data = loans
       .filter(l => l.status === 'active' && l.start_date <= reportFilters.endDate)
-      .map(l => [
-        l.loan_number,
-        l.customer_name,
-        `₹${l.amount.toLocaleString()}`,
-        `${l.interest_rate}%`,
-        format(new Date(l.maturity_date), 'dd MMM yyyy'),
-        format(new Date(l.start_date), 'dd MMM yyyy')
-      ]);
+      .map(l => {
+        const principal = l.amount;
+        
+        // Calculate Accrued Interest
+        const startDate = new Date(l.start_date);
+        const endDate = new Date(reportFilters.endDate);
+        let accruedInterest = 0;
+        let currentAccrualDate = addMonths(startDate, 1);
+        while (isBefore(currentAccrualDate, endDate) || format(currentAccrualDate, 'yyyy-MM-dd') === reportFilters.endDate) {
+          accruedInterest += (principal * l.interest_rate) / 100;
+          currentAccrualDate = addMonths(currentAccrualDate, 1);
+        }
+
+        const loanPayments = payments.filter(p => p.loan_id === l.id && p.date <= reportFilters.endDate);
+        const totalPaid = loanPayments.reduce((sum, p) => sum + p.amount, 0);
+        const outstanding = principal + accruedInterest - totalPaid;
+
+        return [
+          l.loan_number,
+          l.customer_name,
+          `₹${principal.toLocaleString()}`,
+          `₹${accruedInterest.toLocaleString()}`,
+          `₹${totalPaid.toLocaleString()}`,
+          `₹${outstanding.toLocaleString()}`,
+          format(new Date(l.maturity_date), 'dd MMM yyyy')
+        ];
+      });
     
     setPreviewData({
       title: `Active Loans Report (As of ${format(new Date(reportFilters.endDate), 'dd MMM yyyy')})`,
@@ -571,14 +590,32 @@ export default function Reports() {
       new Date(l.maturity_date) < new Date() &&
       l.maturity_date <= reportFilters.endDate
     );
-    const headers = ['Loan #', 'Customer', 'Amount', 'Maturity', 'Days Overdue'];
+    const headers = ['Loan #', 'Customer', 'Principal', 'Accrued Int.', 'Paid', 'Outstanding', 'Days Overdue'];
     const data = overdue.map(l => {
+      const principal = l.amount;
       const days = Math.floor((new Date().getTime() - new Date(l.maturity_date).getTime()) / (1000 * 3600 * 24));
+      
+      // Calculate Accrued Interest
+      const startDate = new Date(l.start_date);
+      const endDate = new Date();
+      let accruedInterest = 0;
+      let currentAccrualDate = addMonths(startDate, 1);
+      while (isBefore(currentAccrualDate, endDate) || format(currentAccrualDate, 'yyyy-MM-dd') === format(endDate, 'yyyy-MM-dd')) {
+        accruedInterest += (principal * l.interest_rate) / 100;
+        currentAccrualDate = addMonths(currentAccrualDate, 1);
+      }
+
+      const loanPayments = payments.filter(p => p.loan_id === l.id);
+      const totalPaid = loanPayments.reduce((sum, p) => sum + p.amount, 0);
+      const outstanding = principal + accruedInterest - totalPaid;
+
       return [
         l.loan_number,
         l.customer_name,
-        `₹${l.amount.toLocaleString()}`,
-        format(new Date(l.maturity_date), 'dd MMM yyyy'),
+        `₹${principal.toLocaleString()}`,
+        `₹${accruedInterest.toLocaleString()}`,
+        `₹${totalPaid.toLocaleString()}`,
+        `₹${outstanding.toLocaleString()}`,
         `${days} days`
       ];
     });
@@ -599,8 +636,8 @@ export default function Reports() {
     try {
       const { data: paymentsData, error: pError } = await supabase
         .from('payments')
-        .select('*, loans(loan_number)')
-        .eq('customer_id', selectedCustomerId)
+        .select('*, loans!inner(loan_number, customer_id)')
+        .eq('loans.customer_id', selectedCustomerId)
         .order('payment_date', { ascending: true });
       
       if (pError) throw pError;
@@ -649,10 +686,11 @@ export default function Reports() {
 
       // 3. Add Payments
       (paymentsData || []).forEach(p => {
+        const loanData = Array.isArray(p.loans) ? p.loans[0] : p.loans;
         transactions.push({
           date: p.payment_date,
-          type: `Payment (${p.payment_type})`,
-          ref: p.loans?.loan_number || p.transaction_id || '-',
+          type: `Payment (${p.payment_type?.replace('_', ' ')})`,
+          ref: loanData?.loan_number || p.transaction_id || '-',
           debit: 0,
           credit: p.amount,
           remarks: `${p.remarks || ''} (Mode: ${p.payment_mode})`.trim()

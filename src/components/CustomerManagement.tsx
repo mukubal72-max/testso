@@ -25,6 +25,7 @@ import {
   Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format, addMonths, isBefore, differenceInDays } from 'date-fns';
 import { exportToPDF, printTable } from '../lib/exportUtils';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -255,6 +256,7 @@ export default function CustomerManagement() {
   React.useEffect(() => {
     async function fetchCustomerData() {
       if (selectedCustomer) {
+        console.log('Fetching data for customer:', selectedCustomer.id);
         try {
           const { data: loans, error: lError } = await supabase
             .from('loans')
@@ -262,14 +264,16 @@ export default function CustomerManagement() {
             .eq('customer_id', selectedCustomer.id);
           
           if (lError) throw lError;
+          console.log('Fetched loans:', loans?.length || 0);
           setCustomerLoans(loans || []);
 
           const { data: payments, error: pError } = await supabase
             .from('payments')
-            .select('*, loans!inner(*)')
+            .select('*, loans!inner(loan_number, customer_id)')
             .eq('loans.customer_id', selectedCustomer.id);
           
           if (pError) throw pError;
+          console.log('Fetched payments:', payments?.length || 0);
           setCustomerPayments(payments || []);
         } catch (err) {
           console.error('Error fetching customer data:', err);
@@ -278,6 +282,76 @@ export default function CustomerManagement() {
     }
     fetchCustomerData();
   }, [selectedCustomer]);
+
+  const ledgerTransactions = React.useMemo(() => {
+    if (!selectedCustomer) return [];
+    
+    const transactions: any[] = [];
+    
+    console.log('Calculating ledger for:', selectedCustomer.full_name);
+    console.log('Loans count:', customerLoans.length);
+    console.log('Payments count:', customerPayments.length);
+
+    // 1. Add Loan Disbursements
+    customerLoans.forEach(l => {
+      const principal = l.loan_amount || l.amount || 0;
+      transactions.push({
+        date: l.start_date || l.loan_date,
+        type: 'Loan Disbursement',
+        ref: l.loan_number,
+        debit: principal,
+        credit: 0,
+        remarks: `Principal Amount: ₹${principal.toLocaleString()} @ ${l.interest_rate}% p.m.`
+      });
+
+      // 2. Generate Monthly Interest Accruals
+      const startDate = new Date(l.start_date || l.loan_date);
+      const endDate = new Date();
+      const monthlyInterest = (principal * (l.interest_rate || 0)) / 100;
+      
+      let currentAccrualDate = addMonths(startDate, 1);
+      while (isBefore(currentAccrualDate, endDate) || format(currentAccrualDate, 'yyyy-MM-dd') === format(endDate, 'yyyy-MM-dd')) {
+        transactions.push({
+          date: format(currentAccrualDate, 'yyyy-MM-dd'),
+          type: 'Interest Accrual',
+          ref: l.loan_number,
+          debit: monthlyInterest,
+          credit: 0,
+          remarks: `Monthly Interest Accrual (${l.interest_rate}%)`
+        });
+        currentAccrualDate = addMonths(currentAccrualDate, 1);
+      }
+    });
+
+    // 3. Add Payments
+    customerPayments.forEach(p => {
+      const loanData = Array.isArray(p.loans) ? p.loans[0] : p.loans;
+      transactions.push({
+        date: p.payment_date,
+        type: `Payment (${p.payment_type?.replace('_', ' ')})`,
+        ref: loanData?.loan_number || p.transaction_id || '-',
+        debit: 0,
+        credit: p.amount,
+        remarks: `${p.remarks || ''} (Mode: ${p.payment_mode})`.trim()
+      });
+    });
+
+    // 4. Sort by Date
+    transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // 5. Calculate Running Balance
+    let runningBalance = 0;
+    const processed = transactions.map((t: any) => {
+      runningBalance += (t.debit - t.credit);
+      return {
+        ...t,
+        balance: runningBalance
+      };
+    });
+
+    console.log('Total ledger transactions:', processed.length);
+    return processed;
+  }, [selectedCustomer, customerLoans, customerPayments]);
 
   const handleFileChange = (name: string, value: string) => {
     setFormData((prev: any) => ({ ...prev, [name]: value }));
@@ -395,28 +469,15 @@ export default function CustomerManagement() {
 
   const handlePrintLedger = () => {
     if (!selectedCustomer) return;
-    const headers = ['Date', 'Type', 'Reference', 'Debit (₹)', 'Credit (₹)', 'Balance (₹)'];
-    const transactions = [
-      ...customerLoans.map(l => ({ ...l, txType: 'loan', date: l.start_date })),
-      ...customerPayments.map(p => ({ ...p, txType: 'payment', date: p.payment_date }))
-    ]
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .reduce((acc: any[], curr: any) => {
-      const prevBalance = acc.length > 0 ? acc[acc.length - 1].balance : 0;
-      const debit = curr.txType === 'loan' ? (curr.loan_amount ?? 0) : 0;
-      const credit = curr.txType === 'payment' ? (curr.amount ?? 0) : 0;
-      const balance = prevBalance + debit - credit;
-      acc.push({ ...curr, debit, credit, balance });
-      return acc;
-    }, []);
-
-    const data = transactions.map(tx => [
-      new Date(tx.date).toLocaleDateString(),
-      tx.txType === 'loan' ? 'Loan Disbursement' : 'Payment Received',
-      tx.txType === 'loan' ? tx.loan_number : (tx.payment_type + ' - ' + (tx.transaction_id || 'Cash')),
+    const headers = ['Date', 'Type', 'Reference', 'Debit (₹)', 'Credit (₹)', 'Balance (₹)', 'Remarks'];
+    const data = ledgerTransactions.map(tx => [
+      format(new Date(tx.date), 'dd MMM yyyy'),
+      tx.type,
+      tx.ref,
       tx.debit > 0 ? tx.debit.toLocaleString() : '-',
       tx.credit > 0 ? tx.credit.toLocaleString() : '-',
-      tx.balance.toLocaleString()
+      tx.balance.toLocaleString(),
+      tx.remarks || '-'
     ]);
 
     printTable(`Customer Ledger - ${selectedCustomer.full_name}`, headers, data, settings);
@@ -424,28 +485,15 @@ export default function CustomerManagement() {
 
   const handleDownloadLedger = () => {
     if (!selectedCustomer) return;
-    const headers = ['Date', 'Type', 'Reference', 'Debit (₹)', 'Credit (₹)', 'Balance (₹)'];
-    const transactions = [
-      ...customerLoans.map(l => ({ ...l, txType: 'loan', date: l.start_date })),
-      ...customerPayments.map(p => ({ ...p, txType: 'payment', date: p.payment_date }))
-    ]
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .reduce((acc: any[], curr: any) => {
-      const prevBalance = acc.length > 0 ? acc[acc.length - 1].balance : 0;
-      const debit = curr.txType === 'loan' ? (curr.loan_amount ?? 0) : 0;
-      const credit = curr.txType === 'payment' ? (curr.amount ?? 0) : 0;
-      const balance = prevBalance + debit - credit;
-      acc.push({ ...curr, debit, credit, balance });
-      return acc;
-    }, []);
-
-    const data = transactions.map(tx => [
-      new Date(tx.date).toLocaleDateString(),
-      tx.txType === 'loan' ? 'Loan Disbursement' : 'Payment Received',
-      tx.txType === 'loan' ? tx.loan_number : (tx.payment_type + ' - ' + (tx.transaction_id || 'Cash')),
+    const headers = ['Date', 'Type', 'Reference', 'Debit (₹)', 'Credit (₹)', 'Balance (₹)', 'Remarks'];
+    const data = ledgerTransactions.map(tx => [
+      format(new Date(tx.date), 'dd MMM yyyy'),
+      tx.type,
+      tx.ref,
       tx.debit > 0 ? tx.debit.toLocaleString() : '-',
       tx.credit > 0 ? tx.credit.toLocaleString() : '-',
-      tx.balance.toLocaleString()
+      tx.balance.toLocaleString(),
+      tx.remarks || '-'
     ]);
 
     exportToPDF(`Customer Ledger - ${selectedCustomer.full_name}`, headers, data, `Ledger_${selectedCustomer.full_name}`, settings);
@@ -1052,56 +1100,44 @@ export default function CustomerManagement() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {[
-                          ...customerLoans.map(l => ({ ...l, txType: 'loan', date: l.start_date })),
-                          ...customerPayments.map(p => ({ ...p, txType: 'payment', date: p.payment_date }))
-                        ]
-                        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                        .reduce((acc: any[], curr: any) => {
-                          const prevBalance = acc.length > 0 ? acc[acc.length - 1].balance : 0;
-                          const debit = curr.txType === 'loan' ? (curr.loan_amount ?? 0) : 0;
-                          const credit = curr.txType === 'payment' ? (curr.amount ?? 0) : 0;
-                          const balance = prevBalance + debit - credit;
-                          acc.push({ ...curr, debit, credit, balance });
-                          return acc;
-                        }, [])
-                        .reverse()
-                        .map((tx, i) => (
-                          <tr key={i} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-4 text-sm">{new Date(tx.date).toLocaleDateString()}</td>
-                            <td className="px-6 py-4">
-                              <span className={cn(
-                                "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
-                                tx.txType === 'loan' ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
-                              )}>
-                                {tx.txType === 'loan' ? 'Loan Disbursement' : 'Payment Received'}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 text-sm font-medium">
-                              <div className="flex flex-col">
-                                <span>{tx.txType === 'loan' ? tx.loan_number : tx.payment_type.replace('_', ' ')}</span>
-                                <span className="text-[10px] text-gray-400 capitalize">
-                                  {tx.txType === 'loan' ? tx.disbursement_mode : (tx.payment_mode + (tx.transaction_id ? ` - ${tx.transaction_id}` : ''))}
+                        {ledgerTransactions
+                          .slice()
+                          .reverse()
+                          .map((tx, i) => (
+                            <tr key={i} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-6 py-4 text-sm">{format(new Date(tx.date), 'dd MMM yyyy')}</td>
+                              <td className="px-6 py-4">
+                                <span className={cn(
+                                  "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
+                                  tx.type.includes('Loan') ? "bg-blue-50 text-blue-600" : 
+                                  tx.type.includes('Interest') ? "bg-amber-50 text-amber-600" :
+                                  "bg-emerald-50 text-emerald-600"
+                                )}>
+                                  {tx.type}
                                 </span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px] truncate">
-                              {tx.remarks || '-'}
-                            </td>
-                            <td className="px-6 py-4 text-sm font-bold text-rose-600">
-                              {tx.debit > 0 ? tx.debit.toLocaleString() : '-'}
-                            </td>
-                            <td className="px-6 py-4 text-sm font-bold text-emerald-600">
-                              {tx.credit > 0 ? tx.credit.toLocaleString() : '-'}
-                            </td>
-                            <td className="px-6 py-4 text-sm font-bold">
-                              {tx.balance.toLocaleString()}
-                            </td>
-                          </tr>
-                        ))}
-                        {customerLoans.length === 0 && customerPayments.length === 0 && (
+                              </td>
+                              <td className="px-6 py-4 text-sm font-medium">
+                                <div className="flex flex-col">
+                                  <span>{tx.ref}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-500 max-w-[200px] truncate">
+                                {tx.remarks || '-'}
+                              </td>
+                              <td className="px-6 py-4 text-sm font-bold text-rose-600">
+                                {tx.debit > 0 ? `₹${tx.debit.toLocaleString()}` : '-'}
+                              </td>
+                              <td className="px-6 py-4 text-sm font-bold text-emerald-600">
+                                {tx.credit > 0 ? `₹${tx.credit.toLocaleString()}` : '-'}
+                              </td>
+                              <td className="px-6 py-4 text-sm font-bold">
+                                ₹{tx.balance.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        {ledgerTransactions.length === 0 && (
                           <tr>
-                            <td colSpan={6} className="px-6 py-12 text-center text-gray-400">No transactions found for this customer.</td>
+                            <td colSpan={7} className="px-6 py-12 text-center text-gray-400">No transactions found for this customer.</td>
                           </tr>
                         )}
                       </tbody>

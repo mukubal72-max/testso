@@ -9,7 +9,8 @@ import {
   CheckCircle2,
   Send,
   Filter,
-  Loader2
+  Loader2,
+  Share2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
@@ -149,20 +150,16 @@ export default function Alerts() {
   };
 
   const handleBulkWhatsApp = () => {
-    const pendingAlerts = alerts.filter(a => a.channel === 'WhatsApp' && a.mobile);
-    if (pendingAlerts.length === 0) {
-      window.alert('No pending WhatsApp alerts found.');
-      return;
-    }
+    const whatsappAlerts = alerts.filter(a => a.channel === 'WhatsApp');
+    if (whatsappAlerts.length === 0) return alert('No pending WhatsApp alerts');
     
-    if (window.confirm(`Send WhatsApp alerts to ${pendingAlerts.length} customers? (Note: Browser may block multiple popups)`)) {
-      // For bulk, we'll just open the first one and let the user know
-      // Opening many tabs at once is usually blocked and bad UX
-      handleSendAlert(pendingAlerts[0]);
-      if (pendingAlerts.length > 1) {
-        window.alert(`First alert opened. Please send remaining ${pendingAlerts.length - 1} alerts individually to avoid browser blocking.`);
-      }
-    }
+    if (!window.confirm(`This will open ${whatsappAlerts.length} WhatsApp chats in new tabs. Do you want to continue?`)) return;
+    
+    whatsappAlerts.forEach((alertData, index) => {
+      setTimeout(() => {
+        handleSendAlert(alertData);
+      }, index * 1000); // 1 second delay between each to avoid browser blocking
+    });
   };
 
   if (loading) {
@@ -237,6 +234,13 @@ export default function Alerts() {
         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
           <h3 className="font-bold text-lg">Pending Notifications</h3>
           <div className="flex gap-2">
+            <button 
+              onClick={handleBulkWhatsApp}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm font-bold"
+            >
+              <Share2 size={16} />
+              Bulk WhatsApp
+            </button>
             <button className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50">
               <Filter size={18} />
             </button>
