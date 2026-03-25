@@ -38,7 +38,7 @@ export default function App() {
   const handleLogin = async (id: string, pass: string) => {
     try {
       // Admin Hardcoded Login (For now, matching server.ts logic)
-      if (id === 'admin@gmail.com' && pass === '12345@Dc') {
+      if (id === 'admin@gmail.com' && pass === '12345@Dc@admin') {
         const adminAuth = { role: 'admin' as const, user: { id: 'admin', name: 'Administrator' } };
         setAuth(adminAuth);
         localStorage.setItem('girvi_auth', JSON.stringify(adminAuth));
